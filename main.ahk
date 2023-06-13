@@ -6,11 +6,13 @@ Main.MarginY := 15
 Main.SetFont("S12", "Microsoft YaHei UI")
 Main.Title := "AHK Rime Console"
 
+maxLogLine := 12
+
 Main.OnEvent("Close", (*) => ExitApp)
-Main.AddText("vMyLog xm ym w250 r8", "Hello, World!")
-Main.AddEdit("vMyInput -Multi yp")
-Main.AddButton("vMySend", "Send")
-Main.AddButton("vMyClear yp", "Clear")
+Main.AddText("vMyLog xm ym w480 r" . maxLogLine, "Hello, World!")
+Main.AddEdit("vMyInput -Multi w380")
+Main.AddButton("vMySend yp", "Send")
+; Main.AddButton("vMyClear yp", "Clear")
 
 Main["MySend"].OnEvent("Click", Send_Click)
 
@@ -30,15 +32,12 @@ Print(output, cleanup := false)
     if (cleanup) {
         num_line := 1
         text := output
-    } else if num_line < 8 {
+    } else if num_line < maxLogLine {
         num_line := num_line + 1
         text := LogText.Text . "`r`n" . output
     } else {
         text := SubStr(LogText.Text, InStr(LogText.Text, "`n") + 1) . "`r`n" . output
     }
-    LogText.GetPos(&x, &y, &w, &h)
-    h := h + 21 ; font size 12
-    LogText.Move(x, y, w, h)
     LogText.Text := text
 }
 
