@@ -1,40 +1,117 @@
-MyGui := Gui("+Resize +MinSize300x200")
-MyGui.AddText("vMessages", "Hellow World.")
-MyGui.Show()
+#Requires AutoHotkey v2.0
 
-Print(output)
+Main := Gui()
+Main.MarginX := 15
+Main.MarginY := 15
+Main.SetFont("S12", "Microsoft YaHei UI")
+Main.Title := "AHK Rime Console"
+
+Main.OnEvent("Close", (*) => ExitApp)
+Main.AddText("vMyLog xm ym w250 r8", "Hello, World!")
+Main.AddEdit("vMyInput -Multi yp")
+Main.AddButton("vMySend", "Send")
+Main.AddButton("vMyClear yp", "Clear")
+
+Main["MySend"].OnEvent("Click", Send_Click)
+
+Main.Show("AutoSize")
+
+Print(output, cleanup := false)
 {
-    static hGui, text
-    if not IsSet(hGui) {
-        hGui := Gui("+Resize")
-        hGui.AddText("vhText x0 y0 w400 h200")
-        hGui.Title := "Messages"
-        hGui["hText"].SetFont("S10", "Microsoft YaHei")
-        hGui.Show("w400 h200")
-        text := output
-    } else {
-        text := hGui["hText"].Text . "`r`n" . output
+    static text, num_line
+    if not IsSet(num_line) {
+        num_line := 1
+        cleanup := true
     }
-    hGui["hText"].Text := text
+    if not IsSet(Main) {
+        ExitApp(1)
+    }
+    LogText := Main["MyLog"]
+    if (cleanup) {
+        num_line := 1
+        text := output
+    } else if num_line < 8 {
+        num_line := num_line + 1
+        text := LogText.Text . "`r`n" . output
+    } else {
+        text := SubStr(LogText.Text, InStr(LogText.Text, "`n") + 1) . "`r`n" . output
+    }
+    LogText.GetPos(&x, &y, &w, &h)
+    h := h + 21 ; font size 12
+    LogText.Move(x, y, w, h)
+    LogText.Text := text
 }
 
 NotificationHandler(context_object, session_id, message_type, message_value)
 {
-    msg := "Session: " . session_id . "    " StrGet(message_type, "UTF-8") . ": " . StrGet(message_value, "UTF-8")
-    ; DllCall(context_object, "Str", msg, "Cdecl")
-    ; Print(msg)
-    ; MyGui.Title := session_id
-    ; MyGui["Messages"].Text := msg
+    msg := "Session: " . session_id . ", " StrGet(message_type, "UTF-8") . ": " . StrGet(message_value, "UTF-8")
+}
+
+Send_Click(GuiCtrlObj, Info)
+{
+    if not rimeReady {
+        return
+    }
+    GuiObj := GuiCtrlObj.Gui
+    line := GuiObj["MyInput"].Text
+    if line = "" {
+        return
+    }
+    if line = "exit" {
+        ExitApp
+    }
+    if line = "print schema list" {
+        list := Buffer(8, 0)
+        res := DllCall("rime\RimeGetSchemaList", "Ptr", list.Ptr, "Cdecl")
+        if res {
+            Print("schema list:")
+            size := NumGet(list, 0, "UInt")
+            Loop size {
+                item := NumGet(list.Ptr, 4, "Ptr") + (A_Index - 1) * 12 ; item = list[A_Index - 1]
+                schema_id_ptr := NumGet(item, 0, "Ptr") ; schema_id_ptr = item.schema_id
+                schema_id := StrGet(schema_id_ptr, "UTF-8")
+                name_ptr := NumGet(item, 4, "Ptr") ; name_ptr = item.name
+                name := StrGet(name_ptr, "UTF-8")
+                out := A_Index . ". " . name . " [" . schema_id . "]"
+                Print(out)
+            }
+        }
+        current := Buffer(100, 0)
+        res := DllCall("rime\RimeGetCurrentSchema", "Int", session_id, "Ptr", current, "UInt", current.Size, "Cdecl")
+        if res {
+            current_name := StrGet(current, "UTF-8")
+            Print("current schema: [" . current_name . "]")
+        }
+        return
+    }
+    if RegExMatch(line, "select schema (.+)", &matched) {
+        schema_id := matched[1]
+        id_length := StrPut(schema_id, "UTF-8")
+        id := Buffer(id_length, 0)
+        StrPut(schema_id, id, "UTF-8")
+        res := DllCall("rime\RimeSelectSchema", "Int", session_id, "Ptr", id, "Cdecl")
+        if res {
+            Print("selected schema: [" . schema_id . "]")
+        }
+        return
+    }
+    ; TODO: select candidate
+    ; TODO: print candidate list
+    ; TODO: set option
+    line_length := StrPut(line, "UTF-8")
+    line_buff := Buffer(line_length)
+    StrPut(line, line_buff, "UTF-8")
+    ; TODO: simulate key sequence
 }
 
 rimeModule := DllCall("LoadLibrary", "Str", "rime.dll", "Ptr")
+rimeReady := false
 
 ; sizeof(RimeTraits) = 96
 traits := Buffer(96, 0)
 NumPut("Int", 92, traits, 0) ; traits.data_size = 92 (sizeof(RimeTraits) - sizeof(traits.data_size))
 app_name_literal := "ahk.rime.console"
 app_name_length := StrPut(app_name_literal, "UTF-8")
-Print(app_name_length)
 app_name := Buffer(app_name_length)
 StrPut(app_name_literal, app_name, "UTF-8")
 NumPut("Ptr", app_name.Ptr, traits, 48) ; traits.app_name = "ahk.rime.console"
@@ -46,14 +123,10 @@ StrPut(dir_literal, dir, "UTF-8")
 NumPut("Ptr", dir.Ptr, traits, 4)
 NumPut("Ptr", dir.Ptr, traits, 8)
 
-name_ptr := NumGet(traits, 8, "Ptr")
-Print(StrGet(name_ptr, "UTF-8"))
-
 DllCall("rime\RimeSetup", "Ptr", traits, "Cdecl")
-
 DllCall("rime\RimeSetNotificationHandler", "Ptr", CallbackCreate(NotificationHandler, "C", 4), "Ptr", 0, "Cdecl")
 
-Print("initializing...")
+Print("initializing...", true)
 
 DllCall("rime\RimeInitialize", "Ptr", 0, "Cdecl")
 success := DllCall("rime\RimeStartMaintenance", "Int", 1, "Cdecl")
@@ -61,18 +134,14 @@ if success {
     DllCall("rime\RimeJoinMaintenanceThread", "CDecl")
 }
 
+rimeReady := true
 Print("ready.")
 
 session_id := DllCall("rime\RimeCreateSession", "CDecl")
 if not session_id {
     MsgBox("Error creating rime session.\n")
-    MyGui.Destroy()
     Exit(1)
 }
-
-MyGui.AddEdit()
-
-MyGui.AddButton("vSend", "Send")
 
 OnExit ExitRimeConsole
 
