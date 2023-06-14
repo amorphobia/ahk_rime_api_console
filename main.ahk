@@ -57,8 +57,8 @@ Print(output)
 
 NotificationHandler(context_object, session_id, message_type, message_value)
 {
-    msg := "Session: " . session_id . ", " StrGet(message_type, "UTF-8") . ": " . StrGet(message_value, "UTF-8")
-    TrayTip(msg)
+    msg := StrGet(message_type, "UTF-8") . ": " . StrGet(message_value, "UTF-8")
+    TrayTip(msg, "Session: " . session_id)
 }
 
 PrintStatus(status)
