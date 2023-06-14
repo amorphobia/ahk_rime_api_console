@@ -198,6 +198,7 @@ Send_KeySequence(GuiCtrlObj, Info)
     if line = "exit" {
         ExitApp
     }
+    Print("input: `"" . line . "`"")
     api := DllCall("rime\rime_get_api", "Cdecl Ptr")
     if line = "print schema list" {
         list := Buffer(8, 0)
@@ -333,7 +334,7 @@ DllCall(NumGet(rimeApi, 12, "Ptr"), "Ptr", 0, "Cdecl") ; rime->initialize
 success := DllCall(NumGet(rimeApi, 20, "Ptr"), "Int", 1, "Cdecl") ; rime->start_maintenance
 
 if success {
-    DllCall(NumGet(rimeApi, 28, "Ptr"), "CDecl")
+    DllCall(NumGet(rimeApi, 28, "Ptr"), "Cdecl") ; rime->join_maintenance_thread
 }
 
 rimeReady := true
