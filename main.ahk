@@ -13,6 +13,14 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Original C++ code rime_api_console.cc
+ *
+ * Copyright RIME Developers
+ * Distributed under the BSD License
+ *
+ * 2011-08-29 GONG Chen <chen.sst@gmail.com>
+ *
  */
 #Requires AutoHotkey v2.0 32-bit
 
@@ -50,6 +58,7 @@ Print(output)
 NotificationHandler(context_object, session_id, message_type, message_value)
 {
     msg := "Session: " . session_id . ", " StrGet(message_type, "UTF-8") . ": " . StrGet(message_value, "UTF-8")
+    TrayTip(msg)
 }
 
 PrintStatus(status)
@@ -79,12 +88,67 @@ PrintStatus(status)
 PrintContext(context)
 {
     if NumGet(context, 4, "Int") > 0 {
-        ; TODO: print composition
-        preedit_ptr := NumGet(context, 20, "Ptr")
+        ; print composition
+        preedit_ptr := NumGet(context, 20, "Ptr") ; composition.preedit
         if preedit_ptr {
             preedit := StrGet(preedit_ptr, "UTF-8")
+            len := StrLen(preedit)
+            start := NumGet(context, 12, "Int")
+            end := NumGet(context, 16, "Int")
+            cursor := NumGet(context, 8, "Int")
+            out := ""
+            Loop Parse preedit {
+                if start < end {
+                    if A_Index = start + 1 {
+                        out := out . "["
+                    } else if A_Index = end + 1 {
+                        out := out . "]"
+                    }
+                }
+                if A_Index = cursor + 1 {
+                    out := out . "|"
+                }
+                if A_Index < len + 1 {
+                    out := out . A_LoopField
+                }
+            }
+            ; AHK Loop Parse string does not include ending '\0'
+            if start < end and end = len {
+                out := out . "]"
+            }
+            if cursor = len {
+                out := out . "|"
+            }
+            Print(out)
         }
-        ; TODO: print menu
+        ; print menu
+        num_candidates := NumGet(context, 40, "Int") ; menu->num_candidates
+        if num_candidates != 0 {
+            page_no := NumGet(context, 28, "Int") ; menu->page_no
+            is_last_page := NumGet(context, 32, "Int") ; menu->is_last_page
+            page_size := NumGet(context, 24, "Int") ; menu->page_size
+            if is_last_page {
+                Print("page: " . page_no + 1 . "$ (of size " . page_size . ")")
+            } else {
+                Print("page: " . page_no + 1 . "  (of size " . page_size . ")")
+            }
+            Loop num_candidates {
+                highlighted := A_Index = NumGet(context, 36, "Int") + 1 ; menu->highlighted_candidate_index + 1
+                cand := NumGet(context, 44, "Ptr") + (A_Index - 1) * 12 ; menu->candidates[A_Index - 1]
+                text := StrGet(NumGet(cand, 0, "Ptr"), "UTF-8")
+                comment_ptr := NumGet(cand, 4, "Ptr")
+                out := A_Index . ". "
+                if highlighted {
+                    out := out . "[" . text . "]"
+                } else {
+                    out := out . " " . text . " "
+                }
+                if comment_ptr {
+                    out := out . StrGet(comment_ptr, "UTF-8")
+                }
+                Print(out)
+            }
+        }
     } else {
         Print("(not composing)")
     }
@@ -243,8 +307,6 @@ rimeModule := DllCall("LoadLibrary", "Str", "rime.dll", "Ptr")
 rimeReady := false
 
 rimeApi := DllCall("rime\rime_get_api", "Cdecl Ptr")
-; api_size := NumGet(rimeApi, 0, "Int")
-; Print(api_size)
 
 ; sizeof(RimeTraits) = 96
 traits := Buffer(96, 0) ; RimeTraits
