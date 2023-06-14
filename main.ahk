@@ -92,31 +92,34 @@ PrintContext(context)
         preedit_ptr := NumGet(context, 20, "Ptr") ; composition.preedit
         if preedit_ptr {
             preedit := StrGet(preedit_ptr, "UTF-8")
-            len := StrLen(preedit)
+            len := StrPut(preedit, "UTF-8")
             start := NumGet(context, 12, "Int")
             end := NumGet(context, 16, "Int")
             cursor := NumGet(context, 8, "Int")
             out := ""
+            i := 0
             Loop Parse preedit {
                 if start < end {
-                    if A_Index = start + 1 {
+                    if i = start {
                         out := out . "["
-                    } else if A_Index = end + 1 {
+                    } else if i = end {
                         out := out . "]"
                     }
                 }
-                if A_Index = cursor + 1 {
+                if i = cursor {
                     out := out . "|"
                 }
-                if A_Index < len + 1 {
+                if i < len {
                     out := out . A_LoopField
                 }
+                char_len := StrPut(A_LoopField, "UTF-8") - 1
+                i := i + char_len
             }
             ; AHK Loop Parse string does not include ending '\0'
-            if start < end and end = len {
+            if start < end and i = end {
                 out := out . "]"
             }
-            if cursor = len {
+            if i = cursor {
                 out := out . "|"
             }
             Print(out)
