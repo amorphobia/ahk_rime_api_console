@@ -1,3 +1,7 @@
+已经并入 [librime-ahk](https://github.com/amorphobia/librime-ahk)，请前往查看。
+
+---
+
 # AutoHotkey 实现的 Rime API 控制台
 
 使用 AutoHotkey 移植了佛振用 C++ 编写的 [rime_api_console](https://github.com/rime/librime/blob/master/tools/rime_api_console.cc)
